@@ -1,19 +1,8 @@
 export interface SesionEstudio {
   id: number;
-  Usuarios_id: number;
-  usuario?: string;
-
-  Materias_id: number;
-  materia?: string;
-
-  Planes_id: number | null;
-  plan?: string;
-
-  Nombre: string;
+  nombre: string;
   descripcion: string;
-  duracion: number;
-  estado: boolean;
-
-  created_at: string;
-  updated_at: string;
+  fecha: string;      // "2025-01-20"
+  hora_inicio: string; // "10:00"
+  duracion: number;   // minutos
 }

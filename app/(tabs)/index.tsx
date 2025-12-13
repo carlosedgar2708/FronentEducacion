@@ -1,5 +1,5 @@
-import UsuariosScreen from "../../src/presentacion/UsuariosScreen";
+import PerfilScreen from "@/src/presentacion/PerfilScreen";
 
 export default function Home() {
-  return <UsuariosScreen />;
+  return <PerfilScreen />;
 }

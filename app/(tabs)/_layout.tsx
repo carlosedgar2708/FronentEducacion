@@ -5,6 +5,7 @@ import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -19,10 +20,13 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Casa',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: 'Perfil',
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="person-circle-outline" size={28} color={color} />
+          ),
         }}
       />
+
       <Tabs.Screen
         name="explore"
         options={{
@@ -30,6 +34,19 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="calendario"
+        options={{
+          title: "Calendario",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar" size={size ?? 28} color={color} />
+          ),
+        }}
+      />
+
     </Tabs>
+    
+
+  
   );
 }

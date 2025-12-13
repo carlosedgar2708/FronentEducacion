@@ -1,5 +1,5 @@
-import { http } from "./http";
 import type { SesionEstudio } from "../entidades/SesionEstudio";
+import { http } from "./http";
 
 export const SesionEstudioData = {
   getAll: () => http<SesionEstudio[]>("/api/secciones/"),

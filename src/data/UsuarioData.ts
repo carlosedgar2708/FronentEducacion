@@ -1,3 +1,14 @@
+import type { Usuario } from "../entidades/Usuario";
+import { http } from "./http";
+
+export const UsuarioData = {
+  getAll: () => http<Usuario[]>("/api/usuarios/"),
+  show: (id: number) => http<Usuario>(`/api/usuarios/${id}/`),
+};
+
+/*
+para traer todos los usuarios
+
 import { http } from "./http";
 import type { Usuario } from "../entidades/Usuario";
 
@@ -12,3 +23,4 @@ export const UsuarioData = {
     http<Usuario>(`/api/usuarios/${id}/`, { method: "PATCH", body: JSON.stringify(usuario) }),
   delete: (id: number) => http<void>(`/api/usuarios/${id}/`, { method: "DELETE" }),
 };
+*/
