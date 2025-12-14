@@ -96,6 +96,27 @@ export default function CalendarioScreen() {
           )}
         </View>
       </ScrollView>
+      {/* Botón IA */}
+      <TouchableOpacity
+        onPress={() => router.push("/generar-calendario")}
+        style={{
+          position: "absolute",
+          right: 18,
+          bottom: 24 + 58 + 12,
+          width: 58,
+          height: 58,
+          borderRadius: 29,
+          backgroundColor: "#111",
+          alignItems: "center",
+          justifyContent: "center",
+          shadowColor: "#000",
+          shadowOpacity: 0.15,
+          shadowRadius: 10,
+          elevation: 6,
+        }}
+      >
+        <Ionicons name="sparkles" size={22} color="#fff" />
+      </TouchableOpacity>
 
       {/* Botón flotante */}
       <TouchableOpacity
