@@ -16,7 +16,9 @@ export default function TabLayout() {
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
         tabBarButton: HapticTab,
-      }}>
+      }}
+    >
+      {/* PERFIL */}
       <Tabs.Screen
         name="index"
         options={{
@@ -27,26 +29,38 @@ export default function TabLayout() {
         }}
       />
 
+      {/* EXPLORE */}
       <Tabs.Screen
         name="explore"
         options={{
           title: 'Tu Mamá',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="calendario"
-        options={{
-          title: "Calendario",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar" size={size ?? 28} color={color} />
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={28} name="paperplane.fill" color={color} />
           ),
         }}
       />
 
-    </Tabs>
-    
+      {/* CALENDARIO */}
+      <Tabs.Screen
+        name="calendario"
+        options={{
+          title: 'Calendario',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar-outline" size={size ?? 28} color={color} />
+          ),
+        }}
+      />
 
-  
+      {/* MATERIAS */}
+      <Tabs.Screen
+        name="materias"
+        options={{
+          title: 'Materias',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="book-outline" size={size ?? 28} color={color} />
+          ),
+        }}
+      />
+    </Tabs>
   );
 }
