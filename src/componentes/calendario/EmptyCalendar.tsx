@@ -1,15 +1,24 @@
 import { Ionicons } from "@expo/vector-icons";
+import React from "react";
 import { Text, View } from "react-native";
 
 export default function EmptyCalendar() {
   return (
-    <View style={{ alignItems: "center", marginTop: 80 }}>
-      <Ionicons name="calendar-outline" size={72} color="#bbb" />
-      <Text style={{ fontSize: 18, marginTop: 16 }}>
+    <View
+      style={{
+        backgroundColor: "#fff",
+        borderRadius: 16,
+        padding: 18,
+        borderWidth: 1,
+        borderColor: "#ececf3",
+      }}
+    >
+      <Ionicons name="calendar-outline" size={22} color="#6c63ff" />
+      <Text style={{ marginTop: 10, fontWeight: "900", fontSize: 16 }}>
         No hay sesiones registradas
       </Text>
-      <Text style={{ color: "#777", marginTop: 6 }}>
-        Aquí aparecerán tus sesiones de estudio
+      <Text style={{ marginTop: 6, color: "#666" }}>
+        Selecciona otro día o crea una nueva sesión.
       </Text>
     </View>
   );

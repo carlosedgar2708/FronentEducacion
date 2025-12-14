@@ -1,40 +1,56 @@
-import type { SesionEstudio } from "@/src/entidades/SesionEstudio";
 import { Ionicons } from "@expo/vector-icons";
-import { Text, View } from "react-native";
+import React from "react";
+import { Text, TouchableOpacity, View } from "react-native";
 
-function getHora(iso: string) {
-  // "2025-01-20T15:00:00Z" => "15:00"
-  if (!iso) return "—";
-  const d = new Date(iso);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${hh}:${mm}`;
-}
-
-export default function SessionCard({ sesion }: { sesion: SesionEstudio }) {
+export default function SessionCard({
+  title,
+  subtitle,
+  time,
+  minutes,
+  color = "#6c63ff",
+  onPress,
+}: {
+  title: string;
+  subtitle: string;
+  time: string;
+  minutes: number;
+  color?: string;
+  onPress?: () => void;
+}) {
   return (
-    <View
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.85}
       style={{
-        backgroundColor: "#f5f5f5",
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 12,
+        backgroundColor: "#fff",
+        borderRadius: 16,
+        padding: 14,
+        marginBottom: 10,
+
+        // 👇 COLOR POR MATERIA
+        borderLeftWidth: 6,
+        borderLeftColor: color,
+
+        shadowColor: "#000",
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
       }}
     >
-      <Text style={{ fontSize: 16, fontWeight: "700" }}>
-        {sesion.Nombre}
+      <Text style={{ fontSize: 15, fontWeight: "800" }}>
+        {title}
       </Text>
 
-      <Text style={{ color: "#555", marginVertical: 4 }}>
-        {sesion.descripcion}
+      <Text style={{ color: "#666", marginTop: 2 }}>
+        {subtitle}
       </Text>
 
-      <View style={{ flexDirection: "row", alignItems: "center", marginTop: 8 }}>
-        <Ionicons name="time-outline" size={16} color="#555" />
-        <Text style={{ marginLeft: 6, color: "#555" }}>
-          {getHora(sesion.created_at)} · {sesion.duracion} min
+      <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6 }}>
+        <Ionicons name="time-outline" size={14} color="#555" />
+        <Text style={{ marginLeft: 6, fontWeight: "700", color: "#555" }}>
+          {time} • {minutes} min
         </Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
