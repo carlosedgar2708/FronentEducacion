@@ -11,16 +11,19 @@ export default function ProfileOption({
   subtitle?: string;
 }) {
   return (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 14,
-        borderBottomWidth: 1,
-        borderBottomColor: "#eee",
-      }}
-    >
-      <Ionicons name={icon} size={22} color="#777" />
+    <View style={{
+      flexDirection: "row",
+      alignItems: "center",
+      padding: 14,
+      borderRadius: 16,
+      backgroundColor: "#fff",
+      marginBottom: 12,
+      shadowColor: "#000",
+      shadowOpacity: 0.03,
+      shadowRadius: 8,
+      elevation: 2,
+    }}>
+    <Ionicons name={icon} size={22} color="#777" />
       <View style={{ marginLeft: 12, flex: 1 }}>
         <Text style={{ fontWeight: "600" }}>{title}</Text>
         {subtitle && (

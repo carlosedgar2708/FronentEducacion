@@ -4,6 +4,9 @@ import { http } from "./http";
 export const UsuarioData = {
   getAll: () => http<Usuario[]>("/api/usuarios/"),
   show: (id: number) => http<Usuario>(`/api/usuarios/${id}/`),
+  patch: (id: number, usuario: Partial<Usuario>) =>
+  http<Usuario>(`/api/usuarios/${id}/`, { method: "PATCH", body: JSON.stringify(usuario) }),
+
 };
 
 /*
