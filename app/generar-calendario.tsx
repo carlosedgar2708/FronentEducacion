@@ -23,11 +23,9 @@ type Preferencia = "Mañana" | "Tarde" | "Noche" | "Indiferente";
 function pad2(n: number) {
   return String(n).padStart(2, "0");
 }
-
 function toYYYYMMDD(d: Date) {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
-
 function parseYYYYMMDD(s: string): Date | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim());
   if (!m) return null;
@@ -35,46 +33,42 @@ function parseYYYYMMDD(s: string): Date | null {
   const mo = Number(m[2]);
   const da = Number(m[3]);
   const d = new Date(y, mo - 1, da);
-  // valida que no se "corrija" sola (ej 2025-02-40)
   if (d.getFullYear() !== y || d.getMonth() !== mo - 1 || d.getDate() !== da) return null;
   return d;
 }
-
 function pickHoraInicio(pref: Preferencia): string {
   switch (pref) {
-    case "Mañana":
-      return "08:00";
-    case "Tarde":
-      return "15:00";
-    case "Noche":
-      return "20:00";
-    case "Indiferente":
-    default:
-      return "10:00";
+    case "Mañana": return "08:00";
+    case "Tarde": return "15:00";
+    case "Noche": return "20:00";
+    default: return "10:00";
   }
 }
-
 function splitTemas(temas: string): string[] {
-  // separa por coma o saltos de línea
   return temas
     .split(/[\n,]+/g)
     .map((t) => t.trim())
     .filter(Boolean);
 }
+function addMinutesToHHmm(hhmm: string, minutes: number) {
+  const [h, m] = hhmm.split(":").map(Number);
+  const total = h * 60 + m + minutes;
+  const hh = Math.floor((total % (24 * 60)) / 60);
+  const mm = total % 60;
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
 
 export default function GenerarCalendarioScreen() {
-  const usuarioId = 1; // TODO: saca esto de tu auth / perfil
+  const usuarioId = 1; // TODO: saca esto de tu auth
 
   const [temas, setTemas] = useState("");
   const [fechaPresentacion, setFechaPresentacion] = useState("2025-12-20");
   const [horasDia, setHorasDia] = useState("2");
 
-  // materias reales
   const [materias, setMaterias] = useState<Materia[]>([]);
   const [loadingMaterias, setLoadingMaterias] = useState(false);
   const [materiasError, setMateriasError] = useState<string | null>(null);
 
-  // dropdown
   const [materiaSel, setMateriaSel] = useState<Materia | null>(null);
   const [showMaterias, setShowMaterias] = useState(false);
 
@@ -94,20 +88,16 @@ export default function GenerarCalendarioScreen() {
       try {
         setLoadingMaterias(true);
         setMateriasError(null);
-
         const data = await MateriaData.getAll();
 
-        // ordena por Nombre si existe
         const sorted = [...data].sort((a: any, b: any) => {
-          const an = (a?.Nombre ?? "").toString();
-          const bn = (b?.Nombre ?? "").toString();
+          const an = (a?.Nombre ?? a?.nombre ?? "").toString();
+          const bn = (b?.Nombre ?? b?.nombre ?? "").toString();
           return an.localeCompare(bn);
         });
 
         if (!alive) return;
         setMaterias(sorted);
-
-        // si no hay materia seleccionada, preselecciona la primera
         if (!materiaSel && sorted.length > 0) setMateriaSel(sorted[0]);
       } catch (e: any) {
         if (!alive) return;
@@ -124,30 +114,21 @@ export default function GenerarCalendarioScreen() {
   }, []);
 
   const onGenerar = async () => {
-    if (!materiaSel) {
-      Alert.alert("Falta info", "Selecciona una materia.");
-      return;
-    }
-    if (!temas.trim()) {
-      Alert.alert("Falta info", "Escribe los temas.");
-      return;
-    }
+    if (!materiaSel) return Alert.alert("Falta info", "Selecciona una materia.");
+    if (!temas.trim()) return Alert.alert("Falta info", "Escribe los temas.");
 
     const fechaObj = parseYYYYMMDD(fechaPresentacion);
-    if (!fechaObj) {
-      Alert.alert("Fecha inválida", "Usa formato YYYY-MM-DD (ej: 2025-12-20).");
-      return;
-    }
+    if (!fechaObj) return Alert.alert("Fecha inválida", "Usa YYYY-MM-DD (ej: 2025-12-20).");
 
     const horas = Number(horasDia);
     if (!Number.isFinite(horas) || horas <= 0) {
-      Alert.alert("Horas inválidas", "Horas por día debe ser un número mayor a 0.");
-      return;
+      return Alert.alert("Horas inválidas", "Horas por día debe ser un número mayor a 0.");
     }
 
-    // 1) llamar IA
+    const materiaNombre = (materiaSel as any).Nombre ?? (materiaSel as any).nombre ?? "";
+
     const pregunta = [
-      `Materia: ${materiaSel.Nombre ?? materiaSel.Nombre}`, // por si tu type usa Nombre
+      `Materia: ${materiaNombre}`,
       `Temas: ${temas}`,
       `Fecha objetivo: ${fechaPresentacion}`,
       `Horas por día: ${horasDia}`,
@@ -158,23 +139,20 @@ export default function GenerarCalendarioScreen() {
 
     setLoadingGenerar(true);
     try {
+      // 1) IA (solo texto)
       const ia = await IAData.recomendarMateria(usuarioId, pregunta);
 
-      // 2) crear sesiones reales (una por día) desde HOY hasta la fecha objetivo
+      // 2) Armar plan real de sesiones
       const temasList = splitTemas(temas);
       const hoy = new Date();
       const start = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
       const end = new Date(fechaObj.getFullYear(), fechaObj.getMonth(), fechaObj.getDate());
 
       if (end < start) {
-        Alert.alert("Fecha objetivo inválida", "La fecha objetivo no puede ser menor a hoy.");
-        return;
+        return Alert.alert("Fecha objetivo inválida", "La fecha objetivo no puede ser menor a hoy.");
       }
 
-      const hora_inicio = pickHoraInicio(preferencia);
-      const duracionMin = Math.round(horas * 60);
-
-      // cuántos días hay disponibles
+      // días disponibles
       const days: string[] = [];
       {
         const d = new Date(start);
@@ -184,24 +162,35 @@ export default function GenerarCalendarioScreen() {
         }
       }
 
-      // distribuye temas por día (simple)
-      // ej: si hay 10 temas y 5 días => 2 temas por día aprox
-      const sesionesPayloads = days.map((fecha, idx) => {
-        const tema = temasList[idx % temasList.length] ?? "Repaso";
-        return {
-          Usuarios_id: usuarioId,
-          Materias_id: materiaSel.id,
-          Planes_id: null,
-          Nombre: `Estudio: ${materiaSel.Nombre ?? ""}`.trim(),
-          descripcion: `Tema: ${tema}\nPreferencia: ${preferencia}\nObjetivo: ${fechaPresentacion}`,
-          duracion: duracionMin,
-          estado: false,
-          fecha,
-          hora_inicio,
-        };
+      const baseHora = pickHoraInicio(preferencia);
+
+      // ✅ sesiones por día (1..3)
+      const sesionesPorDia = Math.max(1, Math.min(3, Math.ceil(horas)));
+      const minutosDia = Math.round(horas * 60);
+
+      // ✅ duración por sesión (reparte las horas del día)
+      const duracionPorSesion = Math.max(20, Math.round(minutosDia / sesionesPorDia));
+      const pausa = 15;
+
+      const sesionesPayloads = days.flatMap((fecha, dayIdx) => {
+        return Array.from({ length: sesionesPorDia }).map((_, j) => {
+          const tema = temasList[(dayIdx * sesionesPorDia + j) % temasList.length] ?? "Repaso";
+          const hora_inicio = addMinutesToHHmm(baseHora, j * (duracionPorSesion + pausa));
+
+          return {
+            Usuarios_id: usuarioId,
+            Materias_id: (materiaSel as any).id,
+            Planes_id: null,
+            Nombre: `Estudio: ${materiaNombre}`.trim(),
+            descripcion: `Tema: ${tema}\nPreferencia: ${preferencia}\nObjetivo: ${fechaPresentacion}`,
+            duracion: duracionPorSesion,
+            estado: false,
+            fecha,
+            hora_inicio, // ✅ lo que el calendario usa
+          };
+        });
       });
 
-      // crea todas las sesiones (secuencial para que sea simple y estable)
       for (const payload of sesionesPayloads) {
         await SesionEstudioData.create(payload as any);
       }
@@ -211,9 +200,8 @@ export default function GenerarCalendarioScreen() {
         `Se crearon ${sesionesPayloads.length} sesiones.\n\nIA dice:\n${ia.recomendacion}`
       );
 
-      // vuelve atrás
       if (router.canGoBack()) router.back();
-      else router.replace("/"); // ajusta a tu ruta principal si quieres
+      else router.replace("/");
     } catch (e: any) {
       console.log(e?.message ?? e);
       Alert.alert("Error", e?.message ?? "No se pudo generar con IA / registrar sesiones.");
@@ -227,25 +215,14 @@ export default function GenerarCalendarioScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 30 }}>
           {/* Header */}
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 16,
-            }}
-          >
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <TouchableOpacity
-              onPress={() => {
-                if (router.canGoBack()) router.back();
-                else router.replace("/");
-              }}
+              onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
             >
               <Ionicons name="arrow-back" size={24} />
             </TouchableOpacity>
 
             <Text style={{ fontSize: 18, fontWeight: "900" }}>Generar con IA</Text>
-
             <View style={{ width: 24 }} />
           </View>
 
@@ -262,16 +239,7 @@ export default function GenerarCalendarioScreen() {
             }}
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 }}>
-              <View
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 22,
-                  backgroundColor: "#111",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
+              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#111", alignItems: "center", justifyContent: "center" }}>
                 <Ionicons name="sparkles" size={20} color="#fff" />
               </View>
 
@@ -302,10 +270,10 @@ export default function GenerarCalendarioScreen() {
                 />
 
                 {showMaterias &&
-                  materias.map((m) => (
+                  materias.map((m: any) => (
                     <DropdownItem
                       key={m.id}
-                      text={(m as any).Nombre ?? (m as any).nombre ?? `Materia ${m.id}`}
+                      text={m.Nombre ?? m.nombre ?? `Materia ${m.id}`}
                       onPress={() => {
                         setMateriaSel(m);
                         setShowMaterias(false);
@@ -380,18 +348,14 @@ export default function GenerarCalendarioScreen() {
                 opacity: loadingGenerar || loadingMaterias ? 0.6 : 1,
               }}
             >
-              {loadingGenerar ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Ionicons name="sparkles" size={18} color="#fff" />
-              )}
+              {loadingGenerar ? <ActivityIndicator color="#fff" /> : <Ionicons name="sparkles" size={18} color="#fff" />}
               <Text style={{ color: "#fff", fontWeight: "900" }}>
                 {loadingGenerar ? "Generando..." : "Generar calendario"}
               </Text>
             </TouchableOpacity>
 
             <Text style={{ marginTop: 12, color: "#777", fontSize: 12 }}>
-              Esto crea sesiones reales en /api/secciones/ desde hoy hasta la fecha objetivo.
+              Esto crea sesiones reales con fecha/hora_inicio desde hoy hasta la fecha objetivo.
             </Text>
           </View>
         </ScrollView>
@@ -404,7 +368,6 @@ export default function GenerarCalendarioScreen() {
 function Label({ text }: { text: string }) {
   return <Text style={{ fontWeight: "800", marginBottom: 6 }}>{text}</Text>;
 }
-
 function Dropdown({
   value,
   placeholder,
@@ -434,7 +397,6 @@ function Dropdown({
     </TouchableOpacity>
   );
 }
-
 function DropdownItem({ text, onPress }: { text: string; onPress: () => void }) {
   return (
     <TouchableOpacity
@@ -450,7 +412,6 @@ function DropdownItem({ text, onPress }: { text: string; onPress: () => void }) 
     </TouchableOpacity>
   );
 }
-
 const input = {
   backgroundColor: "#F6F6FB",
   borderRadius: 14,

@@ -1,7 +1,8 @@
 import TimelineDay from "@/src/componentes/calendario/TimelineDay";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { router } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -26,16 +27,12 @@ function monthTitle(iso: string) {
   return `${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-// Derivamos fecha/hora desde created_at (temporal)
-function deriveFecha(isoDateTime?: string) {
-  if (!isoDateTime) return "";
-  return isoDateTime.split("T")[0] ?? "";
-}
-function deriveHora(isoDateTime?: string) {
-  if (!isoDateTime) return "08:00";
-  const time = isoDateTime.split("T")[1] ?? "";
-  const hhmm = time.substring(0, 5);
-  return hhmm || "08:00";
+// "10:55:56.207629" -> "10:55"
+function hhmm(hora?: string) {
+  if (!hora) return "08:00";
+  const t = hora.trim();
+  if (t.length >= 5) return t.slice(0, 5);
+  return "08:00";
 }
 
 export default function CalendarioScreen() {
@@ -49,7 +46,7 @@ export default function CalendarioScreen() {
     3: "#FF9800",
   };
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
       const data = await SesionEstudioData.getAll();
@@ -60,21 +57,30 @@ export default function CalendarioScreen() {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    load();
   }, []);
+
+  // ✅ clave: recarga cada vez que entras a esta pantalla (vuelves de IA / crear manual)
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   const sesionesDelDia = useMemo(() => {
     return sesiones
-      .map((s) => ({
-        ...s,
-        _fecha: deriveFecha(s.created_at),
-        _hora: deriveHora(s.created_at),
-      }))
-      .filter((s) => s._fecha === selectedISO)
-      .sort((a, b) => a._hora.localeCompare(b._hora));
+      .map((s) => {
+        // tu API devuelve "materia" como string (ej "3") o puede venir Materias_id si lo usas
+        const materiaId = Number((s as any).materia ?? (s as any).Materias_id ?? 0);
+
+        return {
+          ...s,
+          _fecha: (s as any).fecha ?? "",               // ✅ usar fecha real
+          _hora: hhmm((s as any).hora_inicio),          // ✅ usar hora_inicio real
+          _materiaId: materiaId,
+        };
+      })
+      .filter((s: any) => s._fecha === selectedISO)
+      .sort((a: any, b: any) => (a._hora ?? "").localeCompare(b._hora ?? ""));
   }, [sesiones, selectedISO]);
 
   return (
@@ -105,13 +111,13 @@ export default function CalendarioScreen() {
             <EmptyCalendar />
           ) : (
             <TimelineDay
-              sessions={sesionesDelDia.map((s) => ({
+              sessions={sesionesDelDia.map((s: any) => ({
                 id: s.id,
                 title: s.Nombre,
                 subtitle: s.descripcion,
                 start: s._hora,
                 duration: s.duracion,
-                color: MATERIA_COLORS[s.Materias_id] ?? "#999",
+                color: MATERIA_COLORS[s._materiaId] ?? "#999",
               }))}
               onSessionPress={(ses) =>
                 router.push({
@@ -153,9 +159,9 @@ export default function CalendarioScreen() {
         <Ionicons name="sparkles" size={22} color="#fff" />
       </TouchableOpacity>
 
-      {/* Botón + */}
+      {/* Botón + (crear manual) */}
       <TouchableOpacity
-        onPress={() => console.log("Crear sesión manual (pendiente backend/UI)")}
+        onPress={() => router.push("/crear-sesion")}
         style={{
           position: "absolute",
           right: 18,

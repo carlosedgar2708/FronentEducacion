@@ -21,25 +21,21 @@ function monthTitle(iso: string) {
   const d = new Date(iso);
   const months = [
     "Enero","Febrero","Marzo","Abril","Mayo","Junio",
-    "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
+    "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"
   ];
   return `${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-function isoFromCreatedAt(created_at?: string) {
-  if (!created_at) return null;
-  const d = new Date(created_at);
-  if (Number.isNaN(d.getTime())) return null;
-  return toISODate(d);
-}
-function timeFromCreatedAt(created_at?: string) {
-  if (!created_at) return "08:00";
-  const d = new Date(created_at);
-  if (Number.isNaN(d.getTime())) return "08:00";
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+/** ✅ Normaliza hora_inicio a "HH:mm" */
+function toHHmm(hora?: string | null) {
+  if (!hora) return "08:00";
+  const s = String(hora);
+  // "HH:MM:SS.micro" | "HH:MM:SS" | "HH:MM"
+  return s.length >= 5 ? s.slice(0, 5) : "08:00";
 }
 
 export default function CalendarioScreen() {
+  const usuarioId = 1; // si ya tienes auth, cambia esto
   const [selectedISO, setSelectedISO] = useState(toISODate(new Date()));
   const [sesiones, setSesiones] = useState<SesionEstudio[]>([]);
   const [loading, setLoading] = useState(false);
@@ -50,39 +46,47 @@ export default function CalendarioScreen() {
     3: "#FF9800",
   };
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
+  const load = async () => {
+    try {
       setLoading(true);
-      try {
-        const data = await SesionEstudioData.getAll();
-        if (mounted) setSesiones(data);
-      } catch (e) {
-        console.log(e);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
+      // ✅ mejor: traer solo de usuario
+      const data = await SesionEstudioData.byUsuario(usuarioId);
+      setSesiones(data);
+    } catch (e) {
+      console.log("Error sesiones:", e);
+      setSesiones([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
   }, []);
 
+  // ✅ Filtra por fecha REAL
   const sesionesDelDia = useMemo(() => {
     return sesiones
-      .filter((s) => isoFromCreatedAt(s.created_at) === selectedISO)
-      .sort((a, b) => timeFromCreatedAt(a.created_at).localeCompare(timeFromCreatedAt(b.created_at)));
+      .filter((s) => s.fecha === selectedISO)
+      .map((s) => ({
+        ...s,
+        _hora: toHHmm(s.hora_inicio),
+      }))
+      .sort((a, b) => a._hora.localeCompare(b._hora));
   }, [sesiones, selectedISO]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F6F6FB" }} edges={["top"]}>
       <ScrollView stickyHeaderIndices={[0, 1]}>
-        {/* HEADER sticky */}
+        {/* HEADER */}
         <View style={{ backgroundColor: "#F6F6FB" }}>
-          <CalendarHeader title={monthTitle(selectedISO)} onToday={() => setSelectedISO(toISODate(new Date()))} />
+          <CalendarHeader
+            title={monthTitle(selectedISO)}
+            onToday={() => setSelectedISO(toISODate(new Date()))}
+          />
         </View>
 
-        {/* DAY STRIP sticky */}
+        {/* DAY STRIP */}
         <View style={{ backgroundColor: "#F6F6FB" }}>
           <DayStrip selectedISO={selectedISO} onSelect={setSelectedISO} />
         </View>
@@ -103,9 +107,9 @@ export default function CalendarioScreen() {
                 id: s.id,
                 title: s.Nombre,
                 subtitle: s.descripcion,
-                start: timeFromCreatedAt(s.created_at),
+                start: (s as any)._hora, // "HH:mm"
                 duration: s.duracion,
-                color: MATERIA_COLORS[s.Materias_id] ?? "#999",
+                color: MATERIA_COLORS[(s.Materias_id ?? Number(s.materia ?? 0)) as any] ?? "#999",
               }))}
               onSessionPress={(ses) =>
                 router.push({
@@ -149,7 +153,7 @@ export default function CalendarioScreen() {
 
       {/* Botón + (manual) */}
       <TouchableOpacity
-        onPress={() => console.log("Crear sesión manual (pendiente)")}
+        onPress={() => router.push("/crear-sesion")}
         style={{
           position: "absolute",
           right: 18,

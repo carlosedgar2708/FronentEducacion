@@ -9,18 +9,24 @@ function toISODate(d: Date) {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
+/** ✅ parsea "YYYY-MM-DD" SIN timezone */
+function parseISODateLocal(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1);
+}
+
 const WEEK = ["D", "L", "M", "X", "J", "V", "S"];
 
 type Props = {
-  selectedISO: string;            // "2025-12-14"
+  selectedISO: string; // "2025-12-14"
   onSelect: (iso: string) => void;
 };
 
 export default function DayStrip({ selectedISO, onSelect }: Props) {
   const days = useMemo(() => {
-    const selected = new Date(selectedISO);
+    const selected = parseISODateLocal(selectedISO);
     const start = new Date(selected);
-    start.setDate(selected.getDate() - 7); // 15 días (7 atrás + hoy + 7 adelante)
+    start.setDate(selected.getDate() - 7);
 
     return Array.from({ length: 15 }).map((_, i) => {
       const d = new Date(start);
