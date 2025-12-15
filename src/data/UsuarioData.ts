@@ -1,29 +1,10 @@
-import type { Usuario } from "../entidades/Usuario";
+// src/data/UsuarioData.ts
+import type { Usuario } from "@/src/entidades/Usuario";
 import { http } from "./http";
 
 export const UsuarioData = {
-  getAll: () => http<Usuario[]>("/api/usuarios/"),
-  show: (id: number) => http<Usuario>(`/api/usuarios/${id}/`),
+  getAll: () => http.get<Usuario[]>("/usuarios/"),
+  show: (id: number) => http.get<Usuario>(`/usuarios/${id}/`),
   patch: (id: number, usuario: Partial<Usuario>) =>
-  http<Usuario>(`/api/usuarios/${id}/`, { method: "PATCH", body: JSON.stringify(usuario) }),
-
+    http.patch<Usuario>(`/usuarios/${id}/`, usuario),
 };
-
-/*
-para traer todos los usuarios
-
-import { http } from "./http";
-import type { Usuario } from "../entidades/Usuario";
-
-export const UsuarioData = {
-  getAll: () => http<Usuario[]>("/api/usuarios/"),
-  show: (id: number) => http<Usuario>(`/api/usuarios/${id}/`),
-  create: (usuario: Partial<Usuario>) =>
-    http<Usuario>("/api/usuarios/", { method: "POST", body: JSON.stringify(usuario) }),
-  update: (id: number, usuario: Partial<Usuario>) =>
-    http<Usuario>(`/api/usuarios/${id}/`, { method: "PUT", body: JSON.stringify(usuario) }),
-  patch: (id: number, usuario: Partial<Usuario>) =>
-    http<Usuario>(`/api/usuarios/${id}/`, { method: "PATCH", body: JSON.stringify(usuario) }),
-  delete: (id: number) => http<void>(`/api/usuarios/${id}/`, { method: "DELETE" }),
-};
-*/

@@ -1,14 +1,12 @@
+// src/data/PlanData.ts
+import type { Plan } from "@/src/entidades/Plan";
 import { http } from "./http";
-import type { Plan } from "../entidades/Plan";
 
 export const PlanData = {
-  getAll: () => http<Plan[]>("/api/planes/"),
-  show: (id: number) => http<Plan>(`/api/planes/${id}/`),
-  create: (plan: Partial<Plan>) =>
-    http<Plan>("/api/planes/", { method: "POST", body: JSON.stringify(plan) }),
-  update: (id: number, plan: Partial<Plan>) =>
-    http<Plan>(`/api/planes/${id}/`, { method: "PUT", body: JSON.stringify(plan) }),
-  patch: (id: number, plan: Partial<Plan>) =>
-    http<Plan>(`/api/planes/${id}/`, { method: "PATCH", body: JSON.stringify(plan) }),
-  delete: (id: number) => http<void>(`/api/planes/${id}/`, { method: "DELETE" }),
+  getAll: () => http.get<Plan[]>("/planes/"),
+  show: (id: number) => http.get<Plan>(`/planes/${id}/`),
+  create: (plan: Partial<Plan>) => http.post<Plan>("/planes/", plan),
+  update: (id: number, plan: Partial<Plan>) => http.put<Plan>(`/planes/${id}/`, plan),
+  patch: (id: number, plan: Partial<Plan>) => http.patch<Plan>(`/planes/${id}/`, plan),
+  remove: (id: number) => http.delete<{ ok: boolean }>(`/planes/${id}/`),
 };

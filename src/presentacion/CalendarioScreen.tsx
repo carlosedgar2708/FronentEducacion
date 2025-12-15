@@ -1,13 +1,14 @@
 import TimelineDay from "@/src/componentes/calendario/TimelineDay";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import CalendarHeader from "@/src/componentes/calendario/CalendarHeader";
 import DayStrip from "@/src/componentes/calendario/DayStrip";
 import EmptyCalendar from "@/src/componentes/calendario/EmptyCalendar";
+import { SesionEstudioData } from "@/src/data/SesionEstudioData";
 import type { SesionEstudio } from "@/src/entidades/SesionEstudio";
 
 function pad2(n: number) {
@@ -25,49 +26,82 @@ function monthTitle(iso: string) {
   return `${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-// MOCK (hasta que se complete el backend)
-const MOCK_SESIONES: (SesionEstudio & { fecha: string; hora_inicio: string })[] = [
-  { id: 1, Usuarios_id: 1, Materias_id: 1, Planes_id: null, Nombre: "Mate - Integrales", descripcion: "Repasar integrales", duracion: 60, estado: true, created_at: "", updated_at: "", fecha: "2025-12-14", hora_inicio: "08:30" },
-  { id: 2, Usuarios_id: 1, Materias_id: 2, Planes_id: null, Nombre: "React Native", descripcion: "UI calendario", duracion: 90, estado: true, created_at: "", updated_at: "", fecha: "2025-12-14", hora_inicio: "16:00" },
-  { id: 3, Usuarios_id: 1, Materias_id: 2, Planes_id: null, Nombre: "Historia", descripcion: "Leer resumen", duracion: 45, estado: true, created_at: "", updated_at: "", fecha: "2025-12-15", hora_inicio: "10:00" },
-];
+// Derivamos fecha/hora desde created_at (temporal)
+function deriveFecha(isoDateTime?: string) {
+  if (!isoDateTime) return "";
+  return isoDateTime.split("T")[0] ?? "";
+}
+function deriveHora(isoDateTime?: string) {
+  if (!isoDateTime) return "08:00";
+  const time = isoDateTime.split("T")[1] ?? "";
+  const hhmm = time.substring(0, 5);
+  return hhmm || "08:00";
+}
 
 export default function CalendarioScreen() {
   const [selectedISO, setSelectedISO] = useState(toISODate(new Date()));
-    const MATERIA_COLORS: Record<number, string> = {
-    1: "#6C63FF", // Mate
-    2: "#4CAF50", // Programación
-    3: "#FF9800", // Historia
+  const [sesiones, setSesiones] = useState<SesionEstudio[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const MATERIA_COLORS: Record<number, string> = {
+    1: "#6C63FF",
+    2: "#4CAF50",
+    3: "#FF9800",
   };
 
+  const load = async () => {
+    try {
+      setLoading(true);
+      const data = await SesionEstudioData.getAll();
+      setSesiones(data);
+    } catch (e) {
+      console.log("Error sesiones:", e);
+      setSesiones([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
 
   const sesionesDelDia = useMemo(() => {
-    return MOCK_SESIONES
-      .filter((s) => s.fecha === selectedISO)
-      .sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
-  }, [selectedISO]);
+    return sesiones
+      .map((s) => ({
+        ...s,
+        _fecha: deriveFecha(s.created_at),
+        _hora: deriveHora(s.created_at),
+      }))
+      .filter((s) => s._fecha === selectedISO)
+      .sort((a, b) => a._hora.localeCompare(b._hora));
+  }, [sesiones, selectedISO]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F6F6FB" }} edges={["top"]}>
-      <ScrollView stickyHeaderIndices={[0,1]}>
+      <ScrollView stickyHeaderIndices={[0, 1]}>
+        {/* HEADER */}
         <View style={{ backgroundColor: "#F6F6FB" }}>
-        <CalendarHeader
-          title={monthTitle(selectedISO)}
-          onToday={() => setSelectedISO(toISODate(new Date()))}
-        />
-          </View>
+          <CalendarHeader
+            title={monthTitle(selectedISO)}
+            onToday={() => setSelectedISO(toISODate(new Date()))}
+          />
+        </View>
 
+        {/* DAY STRIP */}
         <View style={{ backgroundColor: "#F6F6FB" }}>
-        <DayStrip selectedISO={selectedISO} onSelect={setSelectedISO} />
-          </View>
-        
+          <DayStrip selectedISO={selectedISO} onSelect={setSelectedISO} />
+        </View>
 
+        {/* CONTENT */}
         <View style={{ paddingHorizontal: 16, paddingBottom: 120 }}>
           <Text style={{ fontSize: 16, fontWeight: "900", marginBottom: 10 }}>
             Sesiones del día
           </Text>
 
-          {sesionesDelDia.length === 0 ? (
+          {loading ? (
+            <Text style={{ color: "#666" }}>Cargando sesiones...</Text>
+          ) : sesionesDelDia.length === 0 ? (
             <EmptyCalendar />
           ) : (
             <TimelineDay
@@ -75,7 +109,7 @@ export default function CalendarioScreen() {
                 id: s.id,
                 title: s.Nombre,
                 subtitle: s.descripcion,
-                start: s.hora_inicio,
+                start: s._hora,
                 duration: s.duracion,
                 color: MATERIA_COLORS[s.Materias_id] ?? "#999",
               }))}
@@ -96,6 +130,7 @@ export default function CalendarioScreen() {
           )}
         </View>
       </ScrollView>
+
       {/* Botón IA */}
       <TouchableOpacity
         onPress={() => router.push("/generar-calendario")}
@@ -118,9 +153,9 @@ export default function CalendarioScreen() {
         <Ionicons name="sparkles" size={22} color="#fff" />
       </TouchableOpacity>
 
-      {/* Botón flotante */}
+      {/* Botón + */}
       <TouchableOpacity
-        onPress={() => console.log("Abrir crear sesión (pendiente backend)")}
+        onPress={() => console.log("Crear sesión manual (pendiente backend/UI)")}
         style={{
           position: "absolute",
           right: 18,

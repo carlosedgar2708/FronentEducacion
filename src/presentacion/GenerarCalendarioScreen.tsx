@@ -1,58 +1,117 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import { IAData } from "@/src/data/IAData";
+import { MateriaData } from "@/src/data/MateriaData";
+import type { Materia } from "@/src/entidades/Materia";
 
 export default function GenerarCalendarioScreen() {
   const [temas, setTemas] = useState("");
   const [fechaPresentacion, setFechaPresentacion] = useState("2025-12-20");
   const [horasDia, setHorasDia] = useState("2");
 
-  // 🔽 DROPDOWNS
-  const [materia, setMateria] = useState<string | null>(null);
+  // ✅ Materias reales
+  const [materias, setMaterias] = useState<Materia[]>([]);
+  const [loadingMaterias, setLoadingMaterias] = useState(true);
+  const [materiasError, setMateriasError] = useState<string | null>(null);
+
+  // Dropdowns
+  const [materiaSel, setMateriaSel] = useState<Materia | null>(null);
   const [showMaterias, setShowMaterias] = useState(false);
 
   const [preferencia, setPreferencia] = useState<string | null>(null);
   const [showPreferencia, setShowPreferencia] = useState(false);
 
-  // MOCK materias (luego backend)
-  const MATERIAS = ["Matemática", "Programación", "Historia"];
+  const PREFERENCIAS = useMemo(
+    () => ["Mañana", "Tarde", "Noche", "Indiferente"],
+    []
+  );
 
-  const PREFERENCIAS = ["Mañana", "Tarde", "Noche", "Indiferente"];
+  useEffect(() => {
+    let alive = true;
 
-  const onGenerar = () => {
-    if (!materia || !temas.trim()) {
-      Alert.alert("Falta info", "Completa los campos obligatorios.");
+    (async () => {
+      try {
+        setLoadingMaterias(true);
+        setMateriasError(null);
+
+        const data = await MateriaData.getAll();
+
+        // Ordena por Nombre si existe (bonito para el dropdown)
+        const sorted = [...data].sort((a, b) => {
+          const an = (a as any).Nombre ?? "";
+          const bn = (b as any).Nombre ?? "";
+          return String(an).localeCompare(String(bn));
+        });
+
+        if (alive) {
+          setMaterias(sorted);
+          // si solo hay 1 materia, la preselecciona
+          if (sorted.length === 1) setMateriaSel(sorted[0]);
+        }
+      } catch (e: any) {
+        if (alive) {
+          setMateriasError(e?.message ?? "No se pudieron cargar las materias");
+        }
+      } finally {
+        if (alive) setLoadingMaterias(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const onGenerar = async () => {
+    if (!materiaSel) {
+      Alert.alert("Falta info", "Selecciona una materia.");
+      return;
+    }
+    if (!temas.trim()) {
+      Alert.alert("Falta info", "Escribe los temas.");
       return;
     }
 
-    const payload = {
-      materia,
-      fecha_objetivo: fechaPresentacion,
-      temas,
-      horas_por_dia: Number(horasDia),
-      preferencia_horario: preferencia ?? "Indiferente",
-    };
+    const nombreMateria = (materiaSel as any).Nombre ?? "Sin nombre";
+    const dificultad = (materiaSel as any).Dificultad ?? "N/A";
 
-    console.log("📤 JSON para IA:", payload);
+    const pregunta = [
+      `Materia: ${nombreMateria} (id=${materiaSel.id}, dificultad=${dificultad})`,
+      `Temas: ${temas}`,
+      `Fecha objetivo: ${fechaPresentacion}`,
+      `Horas por día: ${horasDia}`,
+      `Preferencia: ${preferencia ?? "Indiferente"}`,
+      "",
+      "Devuélveme una recomendación clara.",
+    ].join("\n");
 
-    Alert.alert(
-      "Demo",
-      "Cuando el backend esté listo, esto se enviará a la IA."
-    );
-
-    router.back();
+    try {
+      const res = await IAData.recomendarMateria(1, pregunta); // usuario_id fijo por ahora
+      Alert.alert("Recomendación IA", res.recomendacion);
+      router.back();
+    } catch (e) {
+      console.log("Error IA:", e);
+      Alert.alert(
+        "Error",
+        "No se pudo generar con IA (revisa la ruta /api/inteligencia/... y el backend encendido)."
+      );
+    }
   };
+console.log("✅ ESTA ES LA PANTALLA GENERAR CALENDARIO REAL");
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F6F6FB" }} edges={["top"]}>
@@ -60,8 +119,8 @@ export default function GenerarCalendarioScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <ScrollView contentContainerStyle={{ padding: 20 }}>
-          {/* HEADER */}
+        <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 30 }}>
+          {/* Header */}
           <View
             style={{
               flexDirection: "row",
@@ -74,14 +133,12 @@ export default function GenerarCalendarioScreen() {
               <Ionicons name="arrow-back" size={24} />
             </TouchableOpacity>
 
-            <Text style={{ fontSize: 18, fontWeight: "900" }}>
-              Generar con IA
-            </Text>
+            <Text style={{ fontSize: 18, fontWeight: "900" }}>Generar con IA</Text>
 
             <View style={{ width: 24 }} />
           </View>
 
-          {/* CARD */}
+          {/* Card */}
           <View
             style={{
               backgroundColor: "#fff",
@@ -93,8 +150,7 @@ export default function GenerarCalendarioScreen() {
               elevation: 3,
             }}
           >
-            {/* ICON + TITLE */}
-            <View style={{ flexDirection: "row", gap: 10, marginBottom: 12 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 }}>
               <View
                 style={{
                   width: 44,
@@ -109,70 +165,103 @@ export default function GenerarCalendarioScreen() {
               </View>
 
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 18, fontWeight: "900" }}>
-                  Datos para tu calendario
-                </Text>
+                <Text style={{ fontSize: 18, fontWeight: "900" }}>Datos para tu calendario</Text>
                 <Text style={{ color: "#666", marginTop: 2 }}>
-                  La IA organizará tu estudio automáticamente.
+                  La IA te recomendará y organizará tu estudio.
                 </Text>
               </View>
             </View>
 
-            {/* MATERIA */}
+            {/* Materia */}
             <Label text="Materia *" />
-            <Dropdown
-              value={materia}
-              placeholder="Selecciona una materia"
-              open={showMaterias}
-              onToggle={() => setShowMaterias(!showMaterias)}
-            />
-            {showMaterias &&
-              MATERIAS.map((m) => (
-                <DropdownItem
-                  key={m}
-                  text={m}
-                  onPress={() => {
-                    setMateria(m);
-                    setShowMaterias(false);
-                  }}
-                />
-              ))}
 
-            {/* TEMAS */}
+            {loadingMaterias ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <ActivityIndicator />
+                <Text style={{ color: "#666" }}>Cargando materias...</Text>
+              </View>
+            ) : materiasError ? (
+              <View style={{ marginBottom: 8 }}>
+                <Text style={{ color: "#d00", fontWeight: "700" }}>{materiasError}</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    // “recargar” simple
+                    setLoadingMaterias(true);
+                    setMateriasError(null);
+                    MateriaData.getAll()
+                      .then((d) => setMaterias(d))
+                      .catch((e: any) => setMateriasError(e?.message ?? "Error"))
+                      .finally(() => setLoadingMaterias(false));
+                  }}
+                  style={{ marginTop: 8, alignSelf: "flex-start" }}
+                >
+                  <Text style={{ color: "#6c63ff", fontWeight: "800" }}>Reintentar</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <Dropdown
+                  value={
+                    materiaSel
+                      ? `${(materiaSel as any).Nombre ?? "Materia"}`
+                      : null
+                  }
+                  placeholder={materias.length ? "Selecciona una materia" : "No hay materias"}
+                  open={showMaterias}
+                  onToggle={() => setShowMaterias((v) => !v)}
+                  disabled={!materias.length}
+                />
+
+                {showMaterias &&
+                  materias.map((m) => (
+                    <DropdownItem
+                      key={m.id}
+                      text={`${(m as any).Nombre ?? "Sin nombre"}  ·  Dif: ${(m as any).Dificultad ?? "N/A"}`}
+                      onPress={() => {
+                        setMateriaSel(m);
+                        setShowMaterias(false);
+                      }}
+                    />
+                  ))}
+              </>
+            )}
+
+            {/* Temas */}
             <Label text="Temas *" />
             <TextInput
               value={temas}
               onChangeText={setTemas}
-              placeholder="Ej: Integrales, React Native, Historia..."
+              placeholder="Ej: Integrales, Derivadas, Límites..."
               multiline
               style={[input, { minHeight: 90, textAlignVertical: "top" }]}
             />
 
-            {/* FECHA */}
-            <Label text="Fecha objetivo" />
+            {/* Fecha */}
+            <Label text="Fecha objetivo (YYYY-MM-DD)" />
             <TextInput
               value={fechaPresentacion}
               onChangeText={setFechaPresentacion}
-              placeholder="YYYY-MM-DD"
+              placeholder="2025-12-20"
               style={input}
             />
 
-            {/* HORAS */}
+            {/* Horas */}
             <Label text="Horas de estudio por día" />
             <TextInput
               value={horasDia}
               onChangeText={setHorasDia}
               keyboardType="numeric"
+              placeholder="2"
               style={input}
             />
 
-            {/* PREFERENCIA */}
+            {/* Preferencia */}
             <Label text="Preferencia de horario" />
             <Dropdown
               value={preferencia}
               placeholder="Indiferente"
               open={showPreferencia}
-              onToggle={() => setShowPreferencia(!showPreferencia)}
+              onToggle={() => setShowPreferencia((v) => !v)}
             />
             {showPreferencia &&
               PREFERENCIAS.map((p) => (
@@ -186,7 +275,7 @@ export default function GenerarCalendarioScreen() {
                 />
               ))}
 
-            {/* BOTÓN */}
+            {/* Botón */}
             <TouchableOpacity
               onPress={onGenerar}
               style={{
@@ -198,12 +287,12 @@ export default function GenerarCalendarioScreen() {
                 flexDirection: "row",
                 justifyContent: "center",
                 gap: 8,
+                opacity: loadingMaterias ? 0.7 : 1,
               }}
+              disabled={loadingMaterias}
             >
               <Ionicons name="sparkles" size={18} color="#fff" />
-              <Text style={{ color: "#fff", fontWeight: "900" }}>
-                Generar calendario
-              </Text>
+              <Text style={{ color: "#fff", fontWeight: "900" }}>Generar</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -212,8 +301,7 @@ export default function GenerarCalendarioScreen() {
   );
 }
 
-/* ================== COMPONENTES ================== */
-
+/* helpers UI */
 function Label({ text }: { text: string }) {
   return <Text style={{ fontWeight: "800", marginBottom: 6 }}>{text}</Text>;
 }
@@ -223,15 +311,18 @@ function Dropdown({
   placeholder,
   open,
   onToggle,
+  disabled,
 }: {
   value: string | null;
   placeholder: string;
   open: boolean;
   onToggle: () => void;
+  disabled?: boolean;
 }) {
   return (
     <TouchableOpacity
       onPress={onToggle}
+      disabled={disabled}
       style={{
         backgroundColor: "#F6F6FB",
         borderRadius: 14,
@@ -240,23 +331,16 @@ function Dropdown({
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
+        opacity: disabled ? 0.6 : 1,
       }}
     >
-      <Text style={{ color: value ? "#000" : "#888" }}>
-        {value ?? placeholder}
-      </Text>
+      <Text style={{ color: value ? "#000" : "#888" }}>{value ?? placeholder}</Text>
       <Ionicons name={open ? "chevron-up" : "chevron-down"} size={18} />
     </TouchableOpacity>
   );
 }
 
-function DropdownItem({
-  text,
-  onPress,
-}: {
-  text: string;
-  onPress: () => void;
-}) {
+function DropdownItem({ text, onPress }: { text: string; onPress: () => void }) {
   return (
     <TouchableOpacity
       onPress={onPress}

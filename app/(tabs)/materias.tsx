@@ -1,32 +1,30 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
-    Alert,
-    Animated,
-    FlatList,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Animated,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
-type Materia = {
-  id: number;
-  nombre: string;
-  dificultad?: string;
-  notas?: string;
-};
+import { MateriaData } from "@/src/data/MateriaData";
+import type { Materia } from "@/src/entidades/Materia";
 
 export default function MateriasScreen() {
   const [nombre, setNombre] = useState("");
   const [dificultad, setDificultad] = useState("");
   const [notas, setNotas] = useState("");
+
   const [materias, setMaterias] = useState<Materia[]>([]);
   const [editandoId, setEditandoId] = useState<number | null>(null);
-  const [contador, setContador] = useState(1);
+  const [loading, setLoading] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -34,41 +32,75 @@ export default function MateriasScreen() {
     fadeAnim.setValue(0);
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 300,
+      duration: 250,
       useNativeDriver: true,
     }).start();
   };
 
-  const agregarOEditarMateria = () => {
-    if (!nombre.trim()) return;
-
-    if (editandoId) {
-      setMaterias((prev) =>
-        prev.map((m) =>
-          m.id === editandoId
-            ? { ...m, nombre, dificultad, notas }
-            : m
-        )
-      );
-      setEditandoId(null);
-    } else {
-      setMaterias((prev) => [
-        ...prev,
-        { id: contador, nombre, dificultad, notas },
-      ]);
-      setContador(contador + 1);
-    }
-
+  const limpiar = () => {
     setNombre("");
     setDificultad("");
     setNotas("");
-    animar();
+    setEditandoId(null);
+  };
+
+  const cargarMaterias = async () => {
+    try {
+      setLoading(true);
+      const data = await MateriaData.getAll();
+      setMaterias(data);
+      animar();
+    } catch (e: any) {
+      Alert.alert("Error", e?.message ?? "No se pudieron cargar materias");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    cargarMaterias();
+  }, []);
+
+  const agregarOEditarMateria = async () => {
+    if (!nombre.trim()) {
+      Alert.alert("Falta info", "Escribe el nombre de la materia.");
+      return;
+    }
+
+    // si tu backend espera número, puedes validar aquí
+    // const difNum = Number(dificultad);
+    // if (!Number.isFinite(difNum) || difNum < 1 || difNum > 5) ...
+
+    const payload: Partial<Materia> = {
+      Nombre: nombre.trim(),
+      Dificultad: dificultad.trim(), // o String(difNum)
+      Notas: notas.trim() ? notas.trim() : null,
+    };
+
+    try {
+      setLoading(true);
+
+      if (editandoId !== null) {
+        await MateriaData.update(editandoId, payload);
+        Alert.alert("Listo", "Materia actualizada.");
+      } else {
+        await MateriaData.create(payload);
+        Alert.alert("Listo", "Materia creada.");
+      }
+
+      limpiar();
+      await cargarMaterias();
+    } catch (e: any) {
+      Alert.alert("Error", e?.message ?? "No se pudo guardar la materia");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const editarMateria = (m: Materia) => {
-    setNombre(m.nombre);
-    setDificultad(m.dificultad ?? "");
-    setNotas(m.notas ?? "");
+    setNombre(m.Nombre ?? "");
+    setDificultad(m.Dificultad ?? "");
+    setNotas(m.Notas ?? "");
     setEditandoId(m.id);
   };
 
@@ -78,14 +110,24 @@ export default function MateriasScreen() {
       {
         text: "Eliminar",
         style: "destructive",
-        onPress: () =>
-          setMaterias((prev) => prev.filter((m) => m.id !== id)),
+        onPress: async () => {
+          try {
+            setLoading(true);
+            await MateriaData.delete(id);
+            await cargarMaterias();
+          } catch (e: any) {
+            Alert.alert("Error", e?.message ?? "No se pudo eliminar");
+          } finally {
+            setLoading(false);
+          }
+        },
       },
     ]);
   };
 
   const colorPorDificultad = (d?: string) => {
     const n = Number(d);
+    if (!Number.isFinite(n)) return "#999";
     if (n <= 2) return "#4CAF50";
     if (n === 3) return "#FFC107";
     if (n >= 4) return "#F44336";
@@ -95,72 +137,63 @@ export default function MateriasScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={{ flex: 1, backgroundColor: "#F4F6F8" }}
+      style={styles.container}
     >
-      <ScrollView
-        contentContainerStyle={{
-          padding: 20,
-          backgroundColor: "#F4F6F8",
-        }}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* HEADER */}
-        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 20 }}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <View style={styles.header}>
           <Ionicons name="book" size={28} color="#1e90ff" />
-          <Text style={{ fontSize: 22, fontWeight: "bold", marginLeft: 10 }}>
-            Gestión de Materias
-          </Text>
+          <Text style={styles.headerTitle}>Gestión de Materias</Text>
         </View>
 
-        {/* INPUTS */}
         <TextInput
           placeholder="Nombre de la materia"
           value={nombre}
           onChangeText={setNombre}
-          style={inputStyle}
+          style={styles.input}
         />
         <TextInput
           placeholder="Dificultad (1 - 5)"
           value={dificultad}
           onChangeText={setDificultad}
           keyboardType="numeric"
-          style={inputStyle}
+          style={styles.input}
         />
         <TextInput
           placeholder="Notas (opcional)"
           value={notas}
           onChangeText={setNotas}
           multiline
-          style={[inputStyle, { minHeight: 60 }]}
+          style={[styles.input, styles.inputMultiline]}
         />
 
-        {/* BOTÓN */}
         <TouchableOpacity
           onPress={agregarOEditarMateria}
-          style={buttonStyle}
+          style={[styles.button, loading && styles.buttonDisabled]}
+          disabled={loading}
         >
           <Ionicons
-            name={editandoId ? "save-outline" : "add-circle-outline"}
+            name={editandoId !== null ? "save-outline" : "add-circle-outline"}
             size={22}
             color="#fff"
           />
-          <Text style={buttonText}>
-            {editandoId ? "GUARDAR CAMBIOS" : "AGREGAR MATERIA"}
+          <Text style={styles.buttonText}>
+            {editandoId !== null ? "GUARDAR CAMBIOS" : "AGREGAR MATERIA"}
           </Text>
         </TouchableOpacity>
 
-        {/* LISTA */}
         <Animated.View style={{ opacity: fadeAnim }}>
           <FlatList
             data={materias}
-            keyExtractor={(item) => item.id.toString()}
+            keyExtractor={(item) => String(item.id)}
             scrollEnabled={false}
+            refreshing={loading}
+            onRefresh={cargarMaterias}
             renderItem={({ item }) => (
-              <View style={cardStyle}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                  <Text style={titleStyle}>📘 {item.nombre}</Text>
+              <View style={styles.card}>
+                <View style={styles.cardTopRow}>
+                  <Text style={styles.cardTitle}>📘 {item.Nombre}</Text>
 
-                  <View style={{ flexDirection: "row" }}>
+                  <View style={styles.cardActions}>
                     <TouchableOpacity onPress={() => editarMateria(item)}>
                       <Ionicons name="create-outline" size={20} color="#555" />
                     </TouchableOpacity>
@@ -173,23 +206,21 @@ export default function MateriasScreen() {
                   </View>
                 </View>
 
-                {item.dificultad ? (
-                  <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6 }}>
+                {item.Dificultad ? (
+                  <View style={styles.dificultadRow}>
                     <Ionicons
                       name="star"
                       size={16}
-                      color={colorPorDificultad(item.dificultad)}
+                      color={colorPorDificultad(item.Dificultad)}
                     />
                     <Text style={{ marginLeft: 6 }}>
-                      Dificultad: {item.dificultad}
+                      Dificultad: {item.Dificultad}
                     </Text>
                   </View>
                 ) : null}
 
-                {item.notas ? (
-                  <Text style={{ marginTop: 4, color: "#555" }}>
-                    📝 {item.notas}
-                  </Text>
+                {item.Notas ? (
+                  <Text style={styles.notasText}>📝 {item.Notas}</Text>
                 ) : null}
               </View>
             )}
@@ -200,42 +231,47 @@ export default function MateriasScreen() {
   );
 }
 
-/* 🎨 ESTILOS */
-const inputStyle = {
-  backgroundColor: "#fff",
-  borderRadius: 10,
-  padding: 12,
-  marginBottom: 12,
-  borderWidth: 1,
-  borderColor: "#ddd",
-};
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#F4F6F8" },
+  scroll: { padding: 20, backgroundColor: "#F4F6F8" },
 
-const buttonStyle = {
-  backgroundColor: "#1e90ff",
-  padding: 15,
-  borderRadius: 10,
-  marginBottom: 25,
-  flexDirection: "row",
-  justifyContent: "center",
-  alignItems: "center",
-};
+  header: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
+  headerTitle: { fontSize: 22, fontWeight: "bold", marginLeft: 10 },
 
-const buttonText = {
-  color: "#fff",
-  fontWeight: "bold",
-  marginLeft: 8,
-};
+  input: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  inputMultiline: { minHeight: 60, textAlignVertical: "top" },
 
-const cardStyle = {
-  backgroundColor: "#fff",
-  borderRadius: 12,
-  padding: 15,
-  marginBottom: 15,
-  borderWidth: 1,
-  borderColor: "#e1e1e1",
-};
+  button: {
+    backgroundColor: "#1e90ff",
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 25,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  buttonDisabled: { opacity: 0.6 },
+  buttonText: { color: "#fff", fontWeight: "bold", marginLeft: 8 },
 
-const titleStyle = {
-  fontSize: 16,
-  fontWeight: "bold",
-};
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: "#e1e1e1",
+  },
+  cardTopRow: { flexDirection: "row", justifyContent: "space-between" },
+  cardActions: { flexDirection: "row" },
+  cardTitle: { fontSize: 16, fontWeight: "bold" },
+
+  dificultadRow: { flexDirection: "row", alignItems: "center", marginTop: 6 },
+  notasText: { marginTop: 4, color: "#555" },
+});
