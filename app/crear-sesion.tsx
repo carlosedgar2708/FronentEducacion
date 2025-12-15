@@ -5,15 +5,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert, DeviceEventEmitter, KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -52,8 +51,8 @@ export default function CrearSesionScreen() {
         setLoadingMaterias(true);
         const data = await MateriaData.getAll();
         const sorted = [...data].sort((a: any, b: any) =>
-          String((a as any).Nombre ?? (a as any).nombre ?? "").localeCompare(
-            String((b as any).Nombre ?? (b as any).nombre ?? "")
+          String(a?.Nombre ?? a?.nombre ?? "").localeCompare(
+            String(b?.Nombre ?? b?.nombre ?? "")
           )
         );
         if (!alive) return;
@@ -72,13 +71,20 @@ export default function CrearSesionScreen() {
 
   const onCrear = async () => {
     if (!materiaSel) return Alert.alert("Falta", "Selecciona una materia.");
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha.trim())) return Alert.alert("Fecha inválida", "Usa YYYY-MM-DD.");
-    if (!/^\d{2}:\d{2}$/.test(horaInicio.trim())) return Alert.alert("Hora inválida", "Usa HH:mm (ej 08:30).");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha.trim()))
+      return Alert.alert("Fecha inválida", "Usa YYYY-MM-DD.");
+    if (!/^\d{2}:\d{2}$/.test(horaInicio.trim()))
+      return Alert.alert("Hora inválida", "Usa HH:mm (ej 08:30).");
 
     const mins = Number(duracion);
-    if (!Number.isFinite(mins) || mins <= 0) return Alert.alert("Duración inválida", "Pon minutos > 0.");
+    if (!Number.isFinite(mins) || mins <= 0)
+      return Alert.alert("Duración inválida", "Pon minutos > 0.");
 
-    const materiaNombre = (materiaSel as any).Nombre ?? (materiaSel as any).nombre ?? `Materia ${materiaSel.id}`;
+    const materiaNombre =
+      (materiaSel as any).Nombre ??
+      (materiaSel as any).nombre ??
+      `Materia ${materiaSel.id}`;
+
     const payload = {
       Usuarios_id: usuarioId,
       Materias_id: (materiaSel as any).id,
@@ -88,12 +94,14 @@ export default function CrearSesionScreen() {
       duracion: mins,
       estado: false,
       fecha: fecha.trim(),
-      hora_inicio: hhmm(horaInicio),
+      hora_inicio: hhmm(horaInicio), // ✅ HH:mm
     };
 
     try {
       await SesionEstudioData.create(payload as any);
-      Alert.alert("OK", "Sesión creada ✅");
+      DeviceEventEmitter.emit("sesion:changed");
+      router.back();
+      // ✅ NO llames load() aquí; el Calendario se recarga con useFocusEffect
       if (router.canGoBack()) router.back();
       else router.replace("/");
     } catch (e: any) {

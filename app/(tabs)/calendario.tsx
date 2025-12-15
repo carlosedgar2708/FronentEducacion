@@ -1,8 +1,8 @@
 import TimelineDay from "@/src/componentes/calendario/TimelineDay";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useMemo, useState } from "react";
+import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import CalendarHeader from "@/src/componentes/calendario/CalendarHeader";
@@ -26,16 +26,14 @@ function monthTitle(iso: string) {
   return `${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-/** ✅ Normaliza hora_inicio a "HH:mm" */
-function toHHmm(hora?: string | null) {
-  if (!hora) return "08:00";
-  const s = String(hora);
-  // "HH:MM:SS.micro" | "HH:MM:SS" | "HH:MM"
-  return s.length >= 5 ? s.slice(0, 5) : "08:00";
+function normalizeHora(h: string | null | undefined) {
+  if (!h) return "08:00";
+  // "10:55:56.207629" -> "10:55"
+  return String(h).slice(0, 5);
 }
 
 export default function CalendarioScreen() {
-  const usuarioId = 1; // si ya tienes auth, cambia esto
+  const params = useLocalSearchParams(); // ✅ refresh param
   const [selectedISO, setSelectedISO] = useState(toISODate(new Date()));
   const [sesiones, setSesiones] = useState<SesionEstudio[]>([]);
   const [loading, setLoading] = useState(false);
@@ -46,11 +44,10 @@ export default function CalendarioScreen() {
     3: "#FF9800",
   };
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
-      // ✅ mejor: traer solo de usuario
-      const data = await SesionEstudioData.byUsuario(usuarioId);
+      const data = await SesionEstudioData.getAll();
       setSesiones(data);
     } catch (e) {
       console.log("Error sesiones:", e);
@@ -58,27 +55,53 @@ export default function CalendarioScreen() {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    load();
   }, []);
 
-  // ✅ Filtra por fecha REAL
+  // ✅ se ejecuta SIEMPRE al entrar o cuando cambie refresh
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load, params?.refresh])
+  );
+
   const sesionesDelDia = useMemo(() => {
     return sesiones
       .filter((s) => s.fecha === selectedISO)
       .map((s) => ({
         ...s,
-        _hora: toHHmm(s.hora_inicio),
+        _hora: normalizeHora(s.hora_inicio),
       }))
-      .sort((a, b) => a._hora.localeCompare(b._hora));
+      .sort((a, b) => String((a as any)._hora).localeCompare(String((b as any)._hora)));
   }, [sesiones, selectedISO]);
+
+  const onToggleDone = async (session: any) => {
+    const id = session.id as number;
+
+    // estado actual → nuevo estado
+    const actual = !!session.estado;
+    const nuevo = !actual;
+
+    // ✅ optimista: cambia UI al instante
+    setSesiones((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, estado: nuevo } : s))
+    );
+
+    try {
+      await SesionEstudioData.toggleEstado(id, nuevo);
+      // opcional: refrescar para asegurar consistencia
+      await load();
+    } catch (e: any) {
+      // rollback si falló
+      setSesiones((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, estado: actual } : s))
+      );
+      Alert.alert("Error", e?.message ?? "No se pudo actualizar el estado.");
+    }
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F6F6FB" }} edges={["top"]}>
       <ScrollView stickyHeaderIndices={[0, 1]}>
-        {/* HEADER */}
         <View style={{ backgroundColor: "#F6F6FB" }}>
           <CalendarHeader
             title={monthTitle(selectedISO)}
@@ -86,12 +109,10 @@ export default function CalendarioScreen() {
           />
         </View>
 
-        {/* DAY STRIP */}
         <View style={{ backgroundColor: "#F6F6FB" }}>
           <DayStrip selectedISO={selectedISO} onSelect={setSelectedISO} />
         </View>
 
-        {/* CONTENT */}
         <View style={{ paddingHorizontal: 16, paddingBottom: 120 }}>
           <Text style={{ fontSize: 16, fontWeight: "900", marginBottom: 10 }}>
             Sesiones del día
@@ -103,14 +124,20 @@ export default function CalendarioScreen() {
             <EmptyCalendar />
           ) : (
             <TimelineDay
-              sessions={sesionesDelDia.map((s) => ({
-                id: s.id,
-                title: s.Nombre,
-                subtitle: s.descripcion,
-                start: (s as any)._hora, // "HH:mm"
-                duration: s.duracion,
-                color: MATERIA_COLORS[(s.Materias_id ?? Number(s.materia ?? 0)) as any] ?? "#999",
-              }))}
+              sessions={sesionesDelDia.map((s: any) => {
+                const materiaId = (s.Materias_id ?? Number(s.materia)) as number;
+
+                return {
+                  id: s.id,
+                  title: s.Nombre,
+                  subtitle: s.descripcion,
+                  start: s._hora,
+                  duration: s.duracion,
+                  done: !!s.estado,
+                  color: MATERIA_COLORS[materiaId] ?? "#999",
+                };
+              })}
+              onToggleDone={onToggleDone}
               onSessionPress={(ses) =>
                 router.push({
                   pathname: "/detalle-sesion",
@@ -129,7 +156,7 @@ export default function CalendarioScreen() {
         </View>
       </ScrollView>
 
-      {/* Botón IA */}
+      {/* IA */}
       <TouchableOpacity
         onPress={() => router.push("/generar-calendario")}
         style={{
@@ -151,7 +178,7 @@ export default function CalendarioScreen() {
         <Ionicons name="sparkles" size={22} color="#fff" />
       </TouchableOpacity>
 
-      {/* Botón + (manual) */}
+      {/* Crear sesión manual */}
       <TouchableOpacity
         onPress={() => router.push("/crear-sesion")}
         style={{

@@ -2,7 +2,7 @@ export type HttpOptions = Omit<RequestInit, "headers" | "body"> & {
   headers?: Record<string, string>;
 };
 
-const BASE_URL = "http://192.168.0.3:8000/api"; // sin slash final
+const BASE_URL = "http://192.168.0.4:8000/api"; // sin slash final
 
 function joinUrl(base: string, path: string) {
   const p = path.startsWith("/") ? path : `/${path}`;

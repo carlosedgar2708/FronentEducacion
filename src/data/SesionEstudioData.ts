@@ -1,3 +1,4 @@
+// src/data/SesionEstudioData.ts
 import type { SesionEstudio } from "@/src/entidades/SesionEstudio";
 import { http } from "./http";
 
@@ -11,10 +12,6 @@ export const SesionEstudioData = {
   byDate: (fecha: string) =>
     http.get<SesionEstudio[]>(`/secciones/?fecha=${fecha}`),
 
-  // ✅ NUEVO: ambos filtros juntos (tu backend ya lo soporta)
-  byUsuarioYFecha: (usuarioId: number, fecha: string) =>
-    http.get<SesionEstudio[]>(`/secciones/?usuario_id=${usuarioId}&fecha=${fecha}`),
-
   create: (payload: Partial<SesionEstudio>) =>
     http.post<SesionEstudio>("/secciones/", payload),
 
@@ -23,4 +20,8 @@ export const SesionEstudioData = {
 
   remove: (id: number) =>
     http.delete<{ ok: boolean }>(`/secciones/${id}/`),
+
+  // ✅ CHECK: marcar completada / pendiente
+  toggleEstado: (id: number, estado: boolean) =>
+    http.patch<SesionEstudio>(`/secciones/${id}/`, { estado }),
 };

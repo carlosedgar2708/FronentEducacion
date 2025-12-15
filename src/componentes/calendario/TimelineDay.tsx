@@ -6,9 +6,10 @@ type Session = {
   id: number;
   title: string;
   subtitle: string;
-  start: string;
+  start: string;     // "HH:mm"
   duration: number;
   color?: string;
+  done?: boolean;    // ✅ estado
 };
 
 const HOURS = Array.from({ length: 15 }).map((_, i) => i + 8); // 08 → 22
@@ -16,9 +17,11 @@ const HOURS = Array.from({ length: 15 }).map((_, i) => i + 8); // 08 → 22
 export default function TimelineDay({
   sessions,
   onSessionPress,
+  onToggleDone,
 }: {
   sessions: Session[];
   onSessionPress?: (s: Session) => void;
+  onToggleDone?: (s: Session) => void;
 }) {
   return (
     <View style={{ paddingHorizontal: 16 }}>
@@ -56,7 +59,9 @@ export default function TimelineDay({
                   time={s.start}
                   minutes={s.duration}
                   color={s.color}
+                  done={!!s.done}
                   onPress={() => onSessionPress?.(s)}
+                  onToggleDone={() => onToggleDone?.(s)}
                 />
               ))}
             </View>

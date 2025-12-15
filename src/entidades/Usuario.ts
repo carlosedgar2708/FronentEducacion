@@ -1,4 +1,4 @@
-export interface Usuario {
+export type Usuario = {
   id: number;
   Nombre: string;
   Correo: string;
@@ -6,6 +6,6 @@ export interface Usuario {
   disponibilidad: boolean;
   Dias_Libres: string;
   periodo_prefencia: string;
-  created_at: string;
-  updated_at: string;
-}
+  created_at?: string;
+  updated_at?: string;
+};
