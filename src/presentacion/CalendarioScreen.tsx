@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import TimelineDay from "@/src/componentes/calendario/TimelineDay";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
@@ -12,6 +13,15 @@ import DayStrip from "@/src/componentes/calendario/DayStrip";
 import EmptyCalendar from "@/src/componentes/calendario/EmptyCalendar";
 import { SesionEstudioData } from "@/src/data/SesionEstudioData";
 import type { SesionEstudio } from "@/src/entidades/SesionEstudio";
+
+const [usuarioId, setUsuarioId] = useState<number>(1);
+
+useEffect(() => {
+  (async () => {
+    const id = await AsyncStorage.getItem("userId");
+    if (id) setUsuarioId(Number(id));
+  })();
+}, []);
 
 function pad2(n: number) {
   return n < 10 ? `0${n}` : `${n}`;

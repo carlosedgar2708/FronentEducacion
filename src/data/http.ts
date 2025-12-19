@@ -1,8 +1,11 @@
+// src/data/http.ts
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 export type HttpOptions = Omit<RequestInit, "headers" | "body"> & {
   headers?: Record<string, string>;
 };
 
-const BASE_URL = "http://192.168.0.4:8000/api"; // sin slash final
+const BASE_URL = "http://192.168.0.4:8000/api";
 
 function joinUrl(base: string, path: string) {
   const p = path.startsWith("/") ? path : `/${path}`;
@@ -12,9 +15,12 @@ function joinUrl(base: string, path: string) {
 async function request<T>(path: string, options: HttpOptions & { body?: any } = {}): Promise<T> {
   const url = joinUrl(BASE_URL, path);
 
+  const token = await AsyncStorage.getItem("token");
+
   const headers: Record<string, string> = {
     Accept: "application/json",
     ...(options.body !== undefined ? { "Content-Type": "application/json" } : {}),
+    ...(token ? { Authorization: `Token ${token}` } : {}),
     ...(options.headers ?? {}),
   };
 
@@ -28,10 +34,7 @@ async function request<T>(path: string, options: HttpOptions & { body?: any } = 
   const data = text ? safeJson(text) : null;
 
   if (!res.ok) {
-    const msg =
-      (data && (data.error || data.detail)) ||
-      text ||
-      `HTTP ${res.status}`;
+    const msg = (data && (data.error || data.detail)) || text || `HTTP ${res.status}`;
     throw new Error(msg);
   }
 
